@@ -1,0 +1,102 @@
+CREATE TABLE GROUPS (
+    GROUP_ID INT PRIMARY KEY,
+    GROUP_NAME NVARCHAR(20),
+    COURSE INT
+);
+
+CREATE TABLE STUDENTS (
+    STUDENT_ID INT IDENTITY(1,1) PRIMARY KEY,
+    FIRST_NAME NVARCHAR(30),
+    LAST_NAME NVARCHAR(30),
+    PATRONYMIC NVARCHAR(30),
+    BIRTH_DATE DATE,
+    GROUP_ID INT
+);
+
+CREATE TABLE SUBJECTS (
+    SUBJECT_ID INT IDENTITY(1,1) PRIMARY KEY,
+    SUBJECT_NAME NVARCHAR(100),
+    HOURS INT
+);
+
+CREATE TABLE PLAN (
+    GROUP_ID INT,
+    SUBJECT_ID INT,
+    PRIMARY KEY (GROUP_ID, SUBJECT_ID)
+);
+
+
+ALTER TABLE STUDENTS
+ADD CONSTRAINT FK_STUDENTS_GROUPS
+FOREIGN KEY (GROUP_ID) REFERENCES GROUPS(GROUP_ID);
+
+ALTER TABLE PLAN
+ADD CONSTRAINT FK_PLAN_GROUPS
+FOREIGN KEY (GROUP_ID) REFERENCES GROUPS(GROUP_ID);
+
+ALTER TABLE PLAN
+ADD CONSTRAINT FK_PLAN_SUBJECTS
+FOREIGN KEY (SUBJECT_ID) REFERENCES SUBJECTS(SUBJECT_ID);
+
+
+INSERT INTO GROUPS (GROUP_ID, GROUP_NAME, COURSE) VALUES
+(135, N'ПО135', 1),
+(235, N'ПО235', 2),
+(335, N'ПО335', 3),
+(134, N'ПО134', 1);
+
+INSERT INTO STUDENTS (FIRST_NAME, LAST_NAME, PATRONYMIC, BIRTH_DATE, GROUP_ID) VALUES
+(N'Пётр', N'Федоренко', N'Романович', '1997-12-25', 135),
+(N'Ольга', N'Зингел', NULL, '1985-12-25', 135),
+(N'Наталья', N'Савицкая', N'Николаевна', '1987-09-22', 235),
+(N'Мария', N'Ковальчук', N'Евгеньевна', '1992-06-17', 235),
+(N'Тимофей', N'Ковриго', N'Романович', '1992-05-13', 335),
+(N'Никита', N'Шарапо', NULL, '1992-08-14', 335);
+
+INSERT INTO SUBJECTS (SUBJECT_NAME, HOURS) VALUES
+(N'Физика', 200),
+(N'Математика', 120),
+(N'Основы алгоритмизации', 70),
+(N'Проектирование БД', 130),
+(N'Средства визуального программирования', 90),
+(N'Объектно-ориентированное программирование', 70);
+
+INSERT INTO PLAN VALUES
+(135, 1),
+(135, 2),
+(235, 3),
+(235, 4),
+(335, 5),
+(335, 6);
+
+
+-- обновление группы студентов
+UPDATE STUDENTS
+SET GROUP_ID = 134
+WHERE GROUP_ID = 135;
+
+-- удаление старой группы
+DELETE FROM GROUPS
+WHERE GROUP_ID = 135;
+
+-- увеличение часов
+UPDATE SUBJECTS
+SET HOURS = HOURS + 30
+WHERE SUBJECT_NAME IN
+(N'Средства визуального программирования',
+ N'Объектно-ориентированное программирование');
+
+-- добавление формы контроля
+ALTER TABLE SUBJECTS ADD CONTROL_FORM NVARCHAR(20);
+
+UPDATE SUBJECTS
+SET CONTROL_FORM =
+CASE
+    WHEN SUBJECT_NAME = N'Основы алгоритмизации' THEN N'зачет'
+    ELSE N'экзамен'
+END;
+
+-- удаление отчества 
+ALTER TABLE STUDENTS
+DROP COLUMN PATRONYMIC;
+

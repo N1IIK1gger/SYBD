@@ -1,0 +1,179 @@
+CREATE TABLE STUD(
+    id INT PRIMARY KEY IDENTITY(1,1),
+    last_name NVARCHAR(25) NOT NULL,
+    f_name NVARCHAR(25) NOT NULL,
+    s_name NVARCHAR(25),
+    br_date DATE,
+    in_date DATE,
+    exm FLOAT
+);
+
+CREATE TABLE FACULTY (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    faculty_name NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE FORM (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    form_name NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE HOURSS (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    course INT NOT NULL,
+    faculty_id INT NOT NULL,
+    form_id INT NOT NULL,
+    all_h INT,
+    inclass_h INT,
+    CONSTRAINT FK_hours_faculty FOREIGN KEY (faculty_id) REFERENCES faculty(id),
+    CONSTRAINT FK_hours_form FOREIGN KEY (form_id) REFERENCES form(id)
+);
+
+CREATE TABLE PROCESS (
+    stud_id INT NOT NULL,
+    hours_id INT NOT NULL,
+    CONSTRAINT PK_stud_hours PRIMARY KEY (stud_id, hours_id),
+    CONSTRAINT FK_process_stud FOREIGN KEY (stud_id) REFERENCES stud(id),
+    CONSTRAINT FK_process_hours FOREIGN KEY (hours_id) REFERENCES hours(id)
+);
+
+INSERT INTO STUD (LAST_NAME,F_NAME,S_NAME,BR_DATE,IN_DATE, EXM) VALUES
+('Иванов','Игорь','Валентайнович','2002-06-09','2023-05-11',9.1),
+('Петров','Артем','E','2004-03-12','2021-11-15',7.5),
+('Гордеев','Иван','A','1989-05-21','2023-03-23',8.3),
+('Бухтояров','Сергей ','Евгеньевич','1975-04-12','2022-09-21',5.5),
+('Мухамед','Ахмед',NULL,'2008-07-16','2024-06-07',10 );
+
+INSERT INTO faculty (faculty_name) VALUES
+('ФПМ'),
+('ФПК'),
+('ФИТ');
+
+INSERT INTO FORM (form_name) VALUES 
+('Очная'), 
+('Заочная');
+
+INSERT INTO hours (course, faculty_id, form_id, all_h, inclass_h) VALUES
+(1,1,1,246,47),
+(2,2,2,129,61),
+(3, 2, 1, 340, 210),
+(4, 2, 2, 300, 170),
+(2, 1, 2, 260, 130);
+(4, 1, 1, 360, 220),
+
+INSERT INTO process (stud_id, hours_id) VALUES
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4),
+(5, 5),
+(6, 6),
+(7, 7),
+(8, 8),
+(9, 9),
+(10, 10);
+
+GO
+CREATE PROCEDURE STUDCOUNT
+    @FACULTYNAME NVARCHAR(25),
+    @FORMNAME NVARCHAR(7)
+AS
+BEGIN
+    DECLARE @CNT INT;
+
+    SELECT @CNT = COUNT(DISTINCT P.STUDENTID)
+    FROM PROCESS P
+    JOIN HOURSS H ON P.HOURS_ID = H.HOURS_ID
+    JOIN FACULTY F ON H.FACULTY_ID = F.FACULTYID
+    JOIN FORM FR ON H.FORM_ID = FR.FORMID
+    WHERE F.FACULTY_NAME = @FACULTYNAME
+      AND FR.FORM_NAME = @FORMNAME;
+
+    SELECT @CNT AS RESULT;
+END
+GO
+
+
+GO
+CREATE PROCEDURE SUBCOUNT
+AS
+BEGIN
+    DECLARE @FPK INT;
+    DECLARE @FPM INT;
+    DECLARE @ALL INT;
+    DECLARE @SAME INT;
+
+    SELECT @FPK = COUNT(*) FROM HOURSS WHERE FACULTY_ID = 2;
+    SELECT @FPM = COUNT(*) FROM HOURSS WHERE FACULTY_ID = 1;
+    SELECT @ALL = COUNT(*) FROM HOURSS;
+
+    SELECT @SAME = COUNT(*)
+    FROM HOURSS H1
+    JOIN HOURSS H2
+      ON H1.COURSE = H2.COURSE
+     AND H1.FORM_ID = H2.FORM_ID
+     AND H1.FACULTY_ID < H2.FACULTY_ID;
+
+    PRINT 'ФПК: ' + CAST(@FPK AS NVARCHAR);
+    PRINT 'ФПМ: ' + CAST(@FPM AS NVARCHAR);
+    PRINT 'ВСЕГО: ' + CAST(@ALL AS NVARCHAR);
+    PRINT 'ОДИНАКОВЫХ: ' + CAST(@SAME AS NVARCHAR);
+END
+GO
+
+
+GO
+CREATE PROCEDURE NEWSTUDENT
+    @FACULTYNAME NVARCHAR(25),
+    @FORMNAME NVARCHAR(7),
+    @BRDATE DATE,
+    @INDATE DATE,
+    @LASTNAME NVARCHAR(20),
+    @FNAME NVARCHAR(20),
+    @SNAME NVARCHAR(20)
+AS
+BEGIN
+    DECLARE @FID INT;
+    DECLARE @FORID INT;
+    DECLARE @HID INT;
+    DECLARE @NEWID INT;
+
+    SELECT @FID = FACULTYID FROM FACULTY WHERE FACULTY_NAME = @FACULTYNAME;
+    SELECT @FORID = FORMID FROM FORM WHERE FORM_NAME = @FORMNAME;
+
+    IF @FID IS NULL OR @FORID IS NULL
+    BEGIN
+        PRINT 'ОШИБКА';
+        RETURN;
+    END
+
+    SELECT @HID = HOURS_ID
+    FROM HOURSS
+    WHERE FACULTY_ID = @FID AND FORM_ID = @FORID AND COURSE = 1;
+
+    IF @HID IS NULL
+    BEGIN
+        PRINT 'ОШИБКА';
+        RETURN;
+    END
+
+    INSERT INTO STUD (LAST_NAME, F_NAME, S_NAME, BR_DATE, IN_DATE, EXM)
+    VALUES (@LASTNAME, @FNAME, @SNAME, @BRDATE, @INDATE, 0);
+
+    SELECT @NEWID = MAX(STUDENT_ID) FROM STUD;
+
+    INSERT INTO PROCESS VALUES (@NEWID, @HID);
+
+    PRINT 'СТУДЕНТ ДОБАВЛЕН';
+END
+GO
+
+EXECUTE NEWSTUDENT 
+    @FACULTYNAME = N'ФПК',
+    @FORMNAME = N'Очная',
+    @BRDATE = '2006-12-26',
+    @INDATE = '2026-09-01',
+    @LASTNAME = N'Егерев',
+    @FNAME = N'Олег',
+    @SNAME = N'Семенович';
+
