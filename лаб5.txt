@@ -1,89 +1,137 @@
-CREATE TABLE Buyers (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    first_name NVARCHAR(50) NOT NULL,
-    last_name NVARCHAR(50) NOT NULL,
-    birthday DATE
+CREATE TABLE Workers
+(
+    WorkerID INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(50) NOT NULL,
+    Surname NVARCHAR(50) NOT NULL,
+    BirthDt DATE NOT NULL
 );
 
-CREATE TABLE Goods (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    nameG NVARCHAR(100) NOT NULL,
-    cost DECIMAL(10, 2) NOT NULL
+CREATE TABLE Catalogs
+(
+    CatalogID INT IDENTITY(1,1) PRIMARY KEY,
+    CatalogTitle NVARCHAR(60) NOT NULL
 );
 
-CREATE TABLE Purchase (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    buyer_id INT NOT NULL,
-    good_id INT NOT NULL,
-    datetimes DATETIME NOT NULL,
-    FOREIGN KEY (buyer_id) REFERENCES Buyers(id),
-    FOREIGN KEY (good_id) REFERENCES Goods(id)
+CREATE TABLE Goods
+(
+    GoodsID INT IDENTITY(1,1) PRIMARY KEY,
+    GoodsName NVARCHAR(100) NOT NULL,
+    Cost INT NOT NULL,
+    CatalogID INT NOT NULL,
+    CONSTRAINT FK_Goods_Catalogs
+        FOREIGN KEY (CatalogID)
+        REFERENCES Catalogs(CatalogID)
 );
 
+INSERT INTO Workers (Name, Surname, BirthDt)
+VALUES
+(N'Илья', N'Морозов', '1994-04-03'),
+(N'Виктор', N'Громов', '1989-12-18'),
+(N'Олег', N'Федоров', '2000-09-07');
 
-INSERT INTO Buyers (first_name, last_name, birthday) VALUES
-(N'Иван', N'Петров', '1990-05-15'),
-(N'Мария', N'Сидорова', '1985-08-22'),
-(N'Алексей', N'Иванов', '2000-03-10'),
-(N'Елена', N'Козлова', '1995-12-01'),
-(N'Дмитрий', N'Смирнов', '1988-07-19'),
-(N'Ольга', N'Морозова', '1992-07-07');
+INSERT INTO Catalogs (CatalogTitle)
+VALUES
+(N'Бытовая техника'),
+(N'Мототехника');
 
-INSERT INTO Goods (nameG, cost) VALUES
-(N'Аспирин', 50.00),
-(N'Парацетамол', 45.50),
-(N'Нурофен', 120.00),
-(N'Витамин С', 80.00),
-(N'Активированный уголь', 30.00);
-
-INSERT INTO Purchase (buyer_id, good_id, datetimes) VALUES
-(1, 1, '2024-01-15 00:00:00'),
-(1, 2, '2024-01-15 00:00:00'),
-(2, 3, '2024-01-20 00:00:00'),
-(2, 4, '2024-01-20 00:00:00'),
-(3, 1, '2024-01-25 00:00:00'),
-(3, 5, '2024-01-25 00:00:00'),
-(4, 2, '2024-02-01 00:00:00'),
-(4, 3, '2024-02-01 00:00:00'),
-(1, 4, '2024-02-05 00:00:00'),
-(5, 5, '2024-02-10 00:00:00');
-
-GO
-CREATE FUNCTION SATURDAY (@PURCHASE_ID INT)
-RETURNS NVARCHAR(3)
-AS
-BEGIN
-    DECLARE @DAY INT;
-    DECLARE @RES NVARCHAR(3);
-
-    SELECT @DAY = DATEPART(WEEKDAY, datetimes)
-    FROM Purchase
-    WHERE id = @PURCHASE_ID;
-
-    IF @DAY = 1 OR @DAY = 7
-        SET @RES = N'ДА';
-    ELSE
-        SET @RES = N'НЕТ';
-
-    RETURN @RES;
-END;
+INSERT INTO Goods (GoodsName, Cost, CatalogID)
+VALUES
+(N'Пылесос', 12000, 1),
+(N'Микроволновая печь', 9000, 1),
+(N'Скутер', 175000, 2);
 GO
 
-
-GO
-CREATE FUNCTION GET_AGE (@BIRTHDATE DATE)
+CREATE FUNCTION GetYearsOld
+(
+    @DateBirth DATE
+)
 RETURNS INT
 AS
 BEGIN
-    RETURN DATEDIFF(YEAR, @BIRTHDATE, GETDATE());
+    DECLARE @Age INT;
+
+    SET @Age = DATEDIFF(YEAR, @DateBirth, GETDATE());
+
+    IF DATEADD(YEAR, @Age, @DateBirth) > GETDATE()
+        SET @Age = @Age - 1;
+
+    RETURN @Age;
 END;
 GO
 
+SELECT
+    Name,
+    Surname,
+    dbo.GetYearsOld(BirthDt) AS AgeYears
+FROM Workers
+WHERE dbo.GetYearsOld(BirthDt) >= 30;
+GO
 
--- проверка: была ли покупка в выходной
-SELECT id, dbo.SATURDAY(id) AS IS_WEEKEND
-FROM Purchase;
+CREATE FUNCTION ProductsFromCatalog
+(
+    @CatalogName NVARCHAR(60)
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        g.GoodsID,
+        g.GoodsName,
+        g.Cost
+    FROM Goods g
+    WHERE g.CatalogID IN
+    (
+        SELECT CatalogID
+        FROM Catalogs
+        WHERE CatalogTitle = @CatalogName
+    )
+);
+GO
 
--- возраст покупателей
-SELECT first_name, last_name, dbo.GET_AGE(birthday) AS AGE
-FROM Buyers;
+SELECT *
+FROM dbo.ProductsFromCatalog(N'Бытовая техника');
+GO
+
+CREATE FUNCTION FormatPersonName
+(
+    @Name NVARCHAR(50),
+    @Surname NVARCHAR(50)
+)
+RETURNS NVARCHAR(120)
+AS
+BEGIN
+    DECLARE @Result NVARCHAR(120);
+
+    SET @Result = RTRIM(@Surname) + N', ' + RTRIM(@Name);
+
+    RETURN @Result;
+END;
+GO
+
+SELECT dbo.FormatPersonName(Name, Surname) AS PersonInfo
+FROM Workers;
+GO
+
+CREATE FUNCTION AvgGoodsCost
+(
+    @CatalogNumber INT
+)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @AvgPrice INT;
+
+    SELECT @AvgPrice = CAST(AVG(Cost) AS INT)
+    FROM Goods
+    WHERE CatalogID = @CatalogNumber;
+
+    RETURN ISNULL(@AvgPrice, 0);
+END;
+GO
+
+SELECT
+    CatalogTitle,
+    dbo.AvgGoodsCost(CatalogID) AS MeanPrice
+FROM Catalogs;
+GO
